@@ -3,36 +3,42 @@ package edu.itc.se.lab01.task3;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Producer implements Runnable{
-
+public class Producer implements Runnable {
     private final OrderQueue queue;
-    private final int firstid,count,consumer;
-    private final AtomicInteger producerleft;
+    private final int startId;
+    private final int orderCount;
+    private final int numConsumers;
+    private final AtomicInteger activeProducers;
 
-    public Producer(OrderQueue queue,int firstid,int count,int consumer,AtomicInteger producerleft){
+    public Producer(OrderQueue queue, int startId, int orderCount, int numConsumers, AtomicInteger activeProducers) {
         this.queue = queue;
-        this.firstid = firstid;
-        this.count = count;
-        this.consumer = consumer;
-        this.producerleft = producerleft;
+        this.startId = startId;
+        this.orderCount = orderCount;
+        this.numConsumers = numConsumers;
+        this.activeProducers = activeProducers;
     }
 
     @Override
     public void run() {
         try {
-            for (int i = 0; i < count; i++) {
-                Thread.sleep(ThreadLocalRandom.current().nextInt(0, 21));
-                int id = firstid + i;
-                queue.put(new Order(id, "item-"+id, ThreadLocalRandom.current().nextInt(1,6)));              
+            for (int i = 0; i < orderCount; i++) {
+                int pause = ThreadLocalRandom.current().nextInt(0, 21);
+                if (pause > 0) {
+                    Thread.sleep(pause);
+                }
+                int id = startId + i;
+                int qty = ThreadLocalRandom.current().nextInt(1, 6);
+                queue.put(new Order(id, "item-" + id, qty));
             }
-            if (producerleft.decrementAndGet() == 0) {
-                for (int i = 0; i < consumer; i++) {
-                    queue.put(new Order(Order.poison_id, "poison", 0));
+            // Once all producers have finished putting their orders,
+            // the last producer puts one poison pill per consumer.
+            if (activeProducers.decrementAndGet() == 0) {
+                for (int c = 0; c < numConsumers; c++) {
+                    queue.put(Order.poisonPill());
                 }
             }
-        } catch(Exception e) {
-            System.out.println("thread is interrupt1");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
-    
 }

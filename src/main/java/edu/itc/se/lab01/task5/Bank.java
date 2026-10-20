@@ -7,18 +7,35 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class Bank {
     static final class Account {
-        final int id; private long balance;
-        Account(int id, long balance) { this.id = id; this.balance = balance; }
-        long balance() { return balance; }
-        void withdraw(long a) { balance -= a; }
-        void deposit(long a)  { balance += a; }
+        final int id;
+        private long balance;
+
+        Account(int id, long balance) {
+            this.id = id;
+            this.balance = balance;
+        }
+
+        long balance() {
+            return balance;
+        }
+
+        void withdraw(long a) {
+            balance -= a;
+        }
+
+        void deposit(long a) {
+            balance += a;
+        }
     }
 
-    // BUG: lock order depends on the argument order → circular wait
+    // BUG: lock order depends on argument order -> circular wait
     static void transfer(Account from, Account to, long amount) {
         synchronized (from) {
             synchronized (to) {
-                if (from.balance() >= amount) { from.withdraw(amount); to.deposit(amount); }
+                if (from.balance() >= amount) {
+                    from.withdraw(amount);
+                    to.deposit(amount);
+                }
             }
         }
     }
@@ -26,8 +43,7 @@ public class Bank {
     static void watchdog() {
         Thread wd = new Thread(() -> {
             ThreadMXBean mx = ManagementFactory.getThreadMXBean();
-            boolean report = false;
-
+            boolean reported = false;
             while (true) {
                 try {
                     Thread.sleep(1000);
@@ -35,20 +51,18 @@ public class Bank {
                     Thread.currentThread().interrupt();
                     return;
                 }
-                long[] id = mx.findDeadlockedThreads();
-                if (id != null && !report) {
-                    StringBuilder name = new StringBuilder();
-                    for (ThreadInfo info : mx.getThreadInfo(id)) {
-                        if (info == null) {
-                            continue;
+                long[] ids = mx.findDeadlockedThreads();
+                if (ids != null && !reported) {
+                    StringBuilder names = new StringBuilder();
+                    for (ThreadInfo info : mx.getThreadInfo(ids)) {
+                        if (info == null) continue;
+                        if (names.length() > 0) {
+                            names.append(", ");
                         }
-                        if (name.length() > 0) {
-                            name.append(", ");
-                        }
-                        name.append(info.getThreadName());
+                        names.append(info.getThreadName());
                     }
-                    System.out.println("[watchdog] DEADLOCK detected between: " + name);
-                    report = true;
+                    System.out.println("[watchdog] DEADLOCK detected between: " + names);
+                    reported = true;
                 }
             }
         }, "watchdog");
@@ -59,7 +73,9 @@ public class Bank {
     public static void main(String[] args) throws InterruptedException {
         watchdog();
         Account[] accounts = new Account[4];
-        for (int i = 0; i < accounts.length; i++) accounts[i] = new Account(i, 1_000);
+        for (int i = 0; i < accounts.length; i++) {
+            accounts[i] = new Account(i, 1_000);
+        }
 
         Thread[] workers = new Thread[8];
         for (int w = 0; w < workers.length; w++) {
@@ -68,13 +84,21 @@ public class Bank {
                 for (int i = 0; i < 100_000; i++) {
                     Account a = accounts[rnd.nextInt(accounts.length)];
                     Account b = accounts[rnd.nextInt(accounts.length)];
-                    if (a != b) transfer(a, b, rnd.nextInt(1, 50));
+                    if (a != b) {
+                        transfer(a, b, rnd.nextInt(1, 50));
+                    }
                 }
             }, "transfer-" + w);
             workers[w].start();
         }
-        for (Thread t : workers) t.join();
-        long total = 0; for (Account a : accounts) total += a.balance();
-        System.out.println("total = " + total + " (expected 4000)");   // never printed – deadlock
+
+        for (Thread t : workers) {
+            t.join();
+        }
+        long total = 0;
+        for (Account a : accounts) {
+            total += a.balance();
+        }
+        System.out.println("total = " + total + " (expected 4000)");
     }
 }
