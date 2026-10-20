@@ -1,55 +1,51 @@
 package edu.itc.se.lab01.challenge;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.io.IOException;
 
 public class DataGenerator {
 
-   
-    
-    static List<String> WordGenerate() {
-        List<String> word = new ArrayList<>();
-        for(int i= 0;i<2000;i++){
-            word.add("word"+i);
+    static List<String> generateVocabulary(int size) {
+        List<String> words = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            char c1 = (char) ('a' + (i / 676));
+            char c2 = (char) ('a' + ((i / 26) % 26));
+            char c3 = (char) ('a' + (i % 26));
+            words.add("w" + c1 + c2 + c3);
         }
-        return word;
+        return words;
     }
 
-    static void FileGenerate(Path dir , int file , int wordperfile, List<String> word) throws IOException{
+    public static void generateFiles(Path dir, int fileCount, int wordsPerFile, List<String> vocab) throws IOException {
+        Files.createDirectories(dir);
+        Random rnd = new Random(42);
 
-        Random r = new  Random();
-
-        for (int i = 0; i < file; i++) {
-             Path filepath = dir.resolve("file" + i + ".txt");
-
-             try(var w = Files.newBufferedWriter(filepath)){
-                for (int j=0;j < wordperfile;j++){
-                    int index = r.nextInt(word.size());
-                    w.write(word.get(index));
-                    w.write(" ");
+        for (int i = 0; i < fileCount; i++) {
+            Path file = dir.resolve("file" + i + ".txt");
+            try (var writer = Files.newBufferedWriter(file)) {
+                for (int w = 0; w < wordsPerFile; w++) {
+                    int idx = rnd.nextInt(vocab.size());
+                    writer.write(vocab.get(idx));
+                    writer.write(" ");
+                    if ((w + 1) % 20 == 0) {
+                        writer.newLine();
+                    }
                 }
-             }
-             System.out.println("generate: "+ filepath);
+            }
         }
+        System.out.printf("Generated %d files in %s (~%d words each)%n", fileCount, dir, wordsPerFile);
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length != 3) {
-            System.out.println("Usage: DataGenerator <dir> <files> <wordsPerFile>");
-            return;
-        }
-        
-        Path dir = Files.createDirectories(Path.of(args[0]));
-        int file = Integer.parseInt(args[1]);
-        int wordperfile = Integer.parseInt(args[2]);
+        Path dir = Path.of(args.length > 0 ? args[0] : "./data");
+        int fileCount = args.length > 1 ? Integer.parseInt(args[1]) : 200;
+        int wordsPerFile = args.length > 2 ? Integer.parseInt(args[2]) : 50_000;
 
-        List<String> word = WordGenerate();
-        FileGenerate(dir, file, wordperfile, word);
-
-
+        List<String> vocab = generateVocabulary(2000);
+        generateFiles(dir, fileCount, wordsPerFile, vocab);
     }
 }
