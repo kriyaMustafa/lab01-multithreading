@@ -1,0 +1,17 @@
+target/
+*.class
+
+# IDE and Editor files
+.idea/
+*.iml
+*.iws
+out/
+.vscode/
+.classpath
+.project
+.settings/
+tempCodeRunnerFile.*
+
+# OS files
+.DS_Store
+Thumbs.db
